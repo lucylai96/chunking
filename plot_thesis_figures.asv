@@ -1,0 +1,567 @@
+function simdata = plot_thesis_figures(fig, data)
+
+if nargin <2
+    load actionChunk_data.mat;              % original dataset
+    %load actionChunk_revision_data.mat;     % changed for consistent # of actions across both set sizes
+    %load actionChunk_prob_data.mat;        % probabalistic random test (50% of trials switch to random test)
+    %load actionChunk_timepressure_data.mat;% shorted time window of test response to 1000ms and train response to 2000ms and make structured to random test continuous
+    %load data2.mat                         % original but with warning
+    %load data_probabilistic.mat;
+    %load('data_manip_2.mat')
+end
+
+%conds = {'Ns4,random_train', 'Ns4,structured_train', 'Ns4,structured_test','Ns4,random_test',...
+%    'Ns6,random_train', 'Ns6,structured_train', 'Ns6,structured_test','Ns6,random_test'};
+conds = {'Ns4,random_train', 'Ns4,structured_train', 'Ns6,random_train', 'Ns6,structured_train'};
+
+nSubj = length(data);
+cmap =[238 123 100 % Ns4 Random
+    118 181 197
+    216 38 0 % Ns6 Random
+    30 129 176] / 255;
+
+%exportgraphics(gcf,[pwd '/figures/raw/fig1.pdf'], 'ContentType', 'vector');
+simdata = [];
+switch fig
+    case 'fig1' % task
+        % task transition matrices
+        Ns4_rand = [0 0.33 0.33 0.33;
+            0.33 0 0.33 0.33;
+            0.33 0.33 0 0.33;
+            0.33 0.33 0.33 0];
+
+        Ns4_struct = [0 0.33 0.33 0.33;
+            1 0 0 0;
+            0 0.33 0 0.33;
+            0 0.33 0.33 0];
+
+        Ns6_rand = [0 0.2 0.2 0.2 0.2 0.2;
+            0.2 0 0.2 0.2 0.2 0.2;
+            0.2 0.2 0 0.2 0.2 0.2;
+            0.2 0.2 0.2 0 0.2 0.2;
+            0.2 0.2 0.2 0.2 0 0.2;
+            0.2 0.2 0.2 0.2 0.2 0];
+
+        Ns6_struct = [0.2 0.2 0.2 0 0.2 0.2;
+            0.2 0.2 0.2 0 0.2 0.2;
+            0.2 0.2 0.2 0 0.2 0.2;
+            0.2 0.2 0.2 0 0.2 0.2;
+            0 0 0 1 0 0;
+            0.2 0.2 0.2 0 0.2 0.2];
+
+    case 'fig3' % behavior over learning
+        % plot accuracy
+        conds = {'Ns4,random_train', 'Ns4,structured_train', 'Ns6,random_train', 'Ns6,structured_train'};
+
+        nS = [4,4,6,6]; B = [1,2,1,2];
+        nSubj = length(data);
+        nRepeats = sum(data(1).s(strcmp(data(1).cond, conds{1}))==1);
+        accuracy = nan(length(conds), nSubj, nRepeats);
+        for s = 1:nSubj
+            for c = 1:length(conds)
+                idx = strcmp(data(s).cond, conds{c});
+                states = data(s).s(idx);
+                acc = data(s).acc(idx);
+                rt = data(s).rt(idx);
+                acc_nReps = nan(length(unique(states)), nRepeats);
+                acc_by_nReps = nan(length(unique(states)), nRepeats);
+                for i = 1:length(unique(states))
+                    acc_nReps(i,:) = acc(states==i);
+                    acc_by_nReps(i,:) = rt(states==i);
+                end
+                block_type(s,c) = B(c);
+                setsize(s,c) = nS(c);
+                accuracy(c,s,:) = nanmean(acc_nReps);
+                RT(c,s,:) = nanmean(acc_by_nReps);
+                avgAcc(s,c) = nanmean(acc);
+                endAcc(s,c) = nanmean(acc(60:end));
+                avgRT(s,c) = nanmean(rt);
+                endRT(s,c) = nanmean(rt(60:end));
+            end % condition
+        end
+        avgAcc_trials = squeeze(nanmean(accuracy, 2));
+        avgRT_trials = squeeze(nanmean(RT, 2));
+
+        figure; hold on;
+        subplot 221; hold on;
+        colororder(cmap);
+        plot(1:nRepeats, avgAcc_trials(1,:),'-.', 'LineWidth', 3.5);
+        plot(1:nRepeats, avgAcc_trials(2,:),'-.', 'LineWidth', 3.5);
+        plot(1:nRepeats, avgAcc_trials(3,:), 'LineWidth', 3.5);
+        plot(1:nRepeats, avgAcc_trials(4,:), 'LineWidth', 3.5);
+        legend({'Ns=4 Random', 'Ns=4 Structured', 'Ns=6 Random','Ns=6 Structured'}, 'Location', 'southeast');
+        legend('boxoff');
+        xlabel('Trials (per stimulus)'); ylabel('Average accuracy');
+        ylim([0 1])
+
+        subplot 222; hold on;
+        colororder(cmap);
+        plot(1:nRepeats, avgRT_trials(1,:),'-.', 'LineWidth', 3.5);
+        plot(1:nRepeats, avgRT_trials(2,:),'-.', 'LineWidth', 3.5);
+        plot(1:nRepeats, avgRT_trials(3,:), 'LineWidth', 3.5);
+        plot(1:nRepeats, avgRT_trials(4,:), 'LineWidth', 3.5);
+        xlabel('Trials (per stimulus)'); ylabel('Average RTs (ms)');
+        ylim([600 1000])
+
+        subplot 223; hold on;colororder(cmap);
+        b = barwitherr([sem(avgAcc(:,1:2),1)],1, mean(avgAcc(:,1:2))); hold on;
+        b(1).FaceColor = cmap(1,:); b(2).FaceColor = cmap(2,:);
+        b = barwitherr([sem(avgAcc(:,3:4),1)],2, mean(avgAcc(:,3:4)));
+        b(1).FaceColor = cmap(3,:); b(2).FaceColor = cmap(4,:); box off;
+        ylabel('Average accuracy'); xlabel('Set size')
+        xticks([1 2]);  xticklabels({'Ns=4', 'Ns=6'})
+        ylim([0.4 1])
+
+        subplot 224; hold on;colororder(cmap);
+        b = barwitherr([sem(avgRT(:,1:2),1)],1, mean(avgRT(:,1:2))); hold on;
+        b(1).FaceColor = cmap(1,:); b(2).FaceColor = cmap(2,:);
+        b = barwitherr([sem(avgRT(:,3:4),1)],2, mean(avgRT(:,3:4)));
+        b(1).FaceColor = cmap(3,:); b(2).FaceColor = cmap(4,:); box off;
+        ylabel('Average RT (ms)'); xlabel('Set size')
+        xticks([1 2]);  xticklabels({'Ns=4', 'Ns=6'})
+        ylim([600 1000])
+
+        set(gcf, 'Position',  [680 730 540 500])
+        if isfield(data,'save_path')
+            exportgraphics(gcf,[pwd '/figures/raw/fig3_' [data.save_path] '.pdf'], 'ContentType', 'vector');
+        else
+            exportgraphics(gcf,[pwd '/figures/raw/fig3.pdf'], 'ContentType', 'vector');
+        end
+
+        tbl = table;
+        tbl.block_type = categorical(block_type(:));
+        tbl.setsize = categorical(setsize(:));
+        tbl.accuracy = avgAcc(:);
+        tbl.RT = avgRT(:);
+        tbl.sub = repmat(1:nSubj,1,size(block_type,2))';
+
+        % look at the differences in accuracy as a fx of block type and set size
+        lme = fitlme(tbl,'accuracy ~ block_type*setsize + (block_type|sub) + (setsize|sub)');
+        anova(lme)
+
+        % look at the differences in RT as a fx of block type and set size
+        lme = fitlme(tbl,'RT ~ block_type*setsize + (block_type|sub) + (setsize|sub)');
+        anova(lme)
+
+        %[~,p,~,stat] = ttest(avgAcc(:,1),avgAcc(:,2));
+        %disp(['Ns4 Random vs Ns4 Structured: t(',num2str(stat.df),') = ',num2str(stat.tstat),', p = ',num2str(p)]);
+        %[~,p,~,stat] = ttest(avgAcc(:,3),avgAcc(:,4));
+        disp(['Ns6 Random vs Ns6 Structured: t(',num2str(stat.df),') = ',num2str(stat.tstat),', p = ',num2str(p)]);
+
+    case 'fig4' % reward-complexity curves
+
+        analysis_data('reward_complexity', data)
+        if isfield(data,'save_path')
+            exportgraphics(gcf,[pwd '/figures/raw/fig4_' [data.save_path] '.pdf'], 'ContentType', 'vector');
+        else
+            exportgraphics(gcf,[pwd '/figures/raw/fig4.pdf'], 'ContentType', 'vector');
+        end
+
+
+    case 'fig5' % moving avg of ICRT
+        conds = {'Ns4,random_train', 'Ns4,structured_train', 'Ns6,random_train', 'Ns6,structured_train'};
+        analysis_data('ICRT_trials', data)
+
+        if isfield(data,'save_path')
+            exportgraphics(gcf,[pwd '/figures/raw/fig5_' [data.save_path] '.pdf'], 'ContentType', 'vector');
+        else
+            exportgraphics(gcf,[pwd '/figures/raw/fig5.pdf'], 'ContentType', 'vector');
+        end
+
+    case 'fig6' % accuracy / error
+        conds = {'Ns4,random_train', 'Ns4,structured_train', 'Ns6,random_train', 'Ns6,structured_train'};
+        analysis_data('err_trials', data)
+
+
+        if isfield(data,'save_path')
+            exportgraphics(gcf,[pwd '/figures/raw/fig6_' [data.save_path] '.pdf'], 'ContentType', 'vector');
+        else
+            exportgraphics(gcf,[pwd '/figures/raw/fig6.pdf'], 'ContentType', 'vector');
+        end
+
+    case 'sim' % simulate fitted models
+        conds = {'Ns4,random_train', 'Ns4,structured_train', 'Ns6,random_train', 'Ns6,structured_train'};
+        rng(6)
+        %rng(7)
+        %rng(101)
+        % model fitting results
+        load models.mat; % final model fit, fit b0 and lrate_beta
+        %load models_RT_adaptive.mat; % where we fit b0 and lrate_beta = 0.1 but beta only decreases
+        %load models_RT_adaptive2.mat; % where we fit b0 and lrate_beta = 0.1 and beta is free to vary
+        %load models_RT_adaptive3.mat; % where b0 = 1 and fit lrate_beta and beta free to vary
+        %load models_RT_adaptive4.mat; % where we fit lrate_beta and beta free to vary
+        %load models_RT_adaptive5.mat; % where we fit lrate_beta and beta (bad
+        %load models_RT_adaptive6.mat; % same as #2 but fitting lrate_e (its still 0.01 tho)
+        %load models_RT_adaptive7.mat; % same as #2 but fitting lrate_beta
+
+        %models = {'fixed','fixed_cond','adaptive','adaptive_cond'};
+        models = {'adaptive','adaptive_cond'};
+        for m = 2:length(models)
+            simdata = sim_fitted(models{m}, data, results(m));
+
+            simdata(1).save_path = models{m};
+            plot_thesis_figures('fig3',simdata) % behavioral
+            % plot simulated model metrics
+            ecost = nan(nSubj,120,length(conds));
+            beta = nan(nSubj,120,length(conds));
+            for s = 1:nSubj
+                for c = 1:length(conds)
+                    idx = strcmp(simdata(s).cond, conds(c));
+                    ecost(s,1:length(simdata(s).ecost(idx)),c) = simdata(s).ecost(idx);
+                    beta(s,1:length(simdata(s).ecost(idx)),c) = simdata(s).beta(idx);
+                end
+            end
+
+            if contains(models{m},'cond')
+                figure; hold on; colororder(cmap)
+                nexttile; hold on;
+                plot(movmean(squeeze(mean(ecost,1)),10)); ylabel('E[I(S;A|S_{t-1})]'); xlabel('Trials');ylim([0 1])
+
+            else
+                figure; hold on; colororder(cmap)
+                nexttile; hold on;
+                plot(movmean(squeeze(mean(ecost,1)),10)); ylabel('E[I(S;A)]'); xlabel('Trials');ylim([0 1])
+
+            end
+            nexttile; hold on; colororder(cmap)
+            plot(movmean(squeeze(mean(beta,1)),10)); ylabel('\beta'); xlabel('Trials');
+            sgtitle(models{m})
+            set(gcf, 'Position',  [751   621   489   236])
+
+            %simdata(1).save_path = models{m};
+            plot_thesis_figures('fig3',simdata) % behavioral
+            plot_thesis_figures('fig4',simdata) % reward-complexity curves
+            plot_thesis_figures('fig5',simdata) % more chunking in ns6: ICRT
+            plot_thesis_figures('fig6',simdata) % more chunking in ns6: error
+        end
+
+
+
+    case 'fig5_old' % moving avg of I(S;A)
+        for s = 1:nSubj
+            for c = 1:length(conds)
+                idx = strcmp(data(s).cond, conds(c));
+                state = data(s).s(idx);
+                action = data(s).a(idx);
+                reward(s,c) = mean(data(s).r(idx));
+
+                I_sa_s1(s,c) = kernelcmi(state(2:end),action(2:end),state(1:end-1)); % I(S;A|S_{t-1})
+                I_s1a_s(s,c) = kernelcmi(state(1:end-1),action(2:end),state(2:end)); % I(S_{t-1};A|S)
+
+                I_s_a(s,c) = kernelmi(state,action); % I(S;A)
+                I_a_s1(s,c) = kernelmi(state(1:end-1),action(2:end)); % I(S_{t-1};A)
+                I_s_s1(s,c) = kernelmi(state(1:end-1),state(2:end));
+
+                win = 30; % groups of 30 trials
+                for q = 1:length(state)-win
+                    mi(s,q,c) = kernelmi(state(q:q+win-1), action(q:q+win-1));
+                    cond_mi(s,q,c) = kernelcmi(state(q+1:q+win-1), action(q+1:q+win-1),state(q:q+win-2));
+                    redundancy_mov(s,q,c) = kernelcmi(state(q+1:q+win-1), action(q+1:q+win-1),state(q:q+win-2)) - kernelmi(state(q:q+win-1), action(q:q+win-1));
+                end
+            end % cond
+        end % subj
+
+        figure; hold on; colororder(cmap)
+        nexttile; hold on;
+        b = barwitherr([sem(I_s_a(:,1:2),1)],1, mean(I_s_a(:,1:2))); hold on;
+        b(1).FaceColor = cmap(1,:); b(2).FaceColor = cmap(2,:);
+        b = barwitherr([sem(I_s_a(:,3:4),1)],2, mean(I_s_a(:,3:4)));
+        b(1).FaceColor = cmap(3,:); b(2).FaceColor = cmap(4,:); box off;
+        ylabel('I(S;A)'); ylim([0.5 1.2]); title('Policy complexity')
+        xticks([1 2]);  xticklabels({'Ns=4', 'Ns=6'})
+
+        nexttile; hold on;
+        b = barwitherr([sem(I_sa_s1(:,1:2),1)],1, mean(I_sa_s1(:,1:2))); hold on;
+        b(1).FaceColor = cmap(1,:); b(2).FaceColor = cmap(2,:);
+        b = barwitherr([sem(I_sa_s1(:,3:4),1)],2, mean(I_sa_s1(:,3:4)));
+        b(1).FaceColor = cmap(3,:); b(2).FaceColor = cmap(4,:); box off;
+        ylabel('I(S;A|S_{t-1})');ylim([0.5 1.2]); title('Conditional policy complexity')
+        xticks([1 2]);  xticklabels({'Ns=4', 'Ns=6'})
+
+        nexttile; hold on;
+        mi(mi==0)=NaN;
+        plot(squeeze(mean(mi,1)),'LineWidth',3);
+        ylabel('I(S;A)'); xlabel('Trials'); ylim([0.5 1.2])
+
+        nexttile; hold on;
+        cond_mi(cond_mi==0)=NaN;
+        plot(squeeze(mean(cond_mi,1)),'LineWidth',3);
+        ylabel('I(S;A|S_{t-1})'); xlabel('Trials'); ylim([0.5 1.2])
+
+        set(gcf, 'Position',  [680 730  580  530])
+
+        if isfield(data,'save_path')
+            exportgraphics(gcf,[pwd '/figures/raw/fig5_' [data.save_path] '.pdf'], 'ContentType', 'vector');
+        else
+            exportgraphics(gcf,[pwd '/figures/raw/fig5.pdf'], 'ContentType', 'vector');
+        end
+
+    case 'fig3_extra' % RT and accuracy behavior in other states
+        conds = {'Ns4,random_train', 'Ns4,structured_train', 'Ns6,random_train', 'Ns6,structured_train'};
+
+        chunkInit = [2,2,5,5];
+        for s = 1:nSubj
+            for c = 1:length(conds)
+                idx = strcmp(data(s).cond, conds(c));
+                state = data(s).s(idx);
+                action = data(s).a(idx);
+                rt = data(s).rt(idx); rt = [rt; NaN];
+                acc = state == action; acc = [acc; NaN];
+                nc = ones(length(state),1); nc([find(state==chunkInit(c))+1;find(state==chunkInit(c))]) = 0; % non chunk states
+
+                rt_cis(s,c) = nanmean(rt(state==chunkInit(c)));
+                rt_ics(s,c) = nanmean(rt(find(state==chunkInit(c))+1));
+                rt_nc(s,c) = nanmean(rt(nc==1));
+                rt_avg(s,c) = nanmean(rt);
+
+                acc_cis(s,c) = nanmean(acc(state==chunkInit(c)));
+                acc_ics(s,c) = nanmean(acc(find(state==chunkInit(c))+1));
+                acc_nc(s,c) = nanmean(acc(nc==1));
+                acc_avg(s,c) = nanmean(acc);
+
+
+                %                 for ss = 1:max(state)
+                %                     acc(s,ss,c) = sum(state==ss & action==ss)./sum(state==ss);
+                %                 end
+            end
+        end
+        % RT of chunk initiating action and intra chunk action vs other actions
+        figure; hold on; colororder(cmap)
+        nexttile; hold on;
+        barwitherr([sem(rt_cis(:,1:2),1);sem(rt_cis(:,3:4),1)],[mean(rt_cis(:,1:2));mean(rt_cis(:,3:4))]);
+        ylabel('RT (ms)'); ylim([500 1000]); legend({'Random', 'Structured'},'Location', 'northeast'); title('Chunk-initiating state')
+        yline(mean(rt_avg))
+
+        nexttile; hold on;
+        barwitherr([sem(rt_ics(:,1:2),1);sem(rt_ics(:,3:4),1)],[mean(rt_ics(:,1:2));mean(rt_ics(:,3:4))]);
+        ylabel('RT (ms)'); ylim([500 1000]); title('Intra-chunk state')
+        yline(mean(rt_avg))
+
+        nexttile; hold on;
+        barwitherr([sem(rt_nc(:,1:2),1);sem(rt_nc(:,3:4),1)],[mean(rt_nc(:,1:2));mean(rt_nc(:,3:4))]);
+        ylabel('RT (ms)'); ylim([500 1000]); title('Non-chunk state')
+        yline(mean(rt_avg))
+
+        set(gcf, 'Position',  [680 730 1000 240])
+
+        % accuracy
+        figure; hold on; colororder(cmap)
+        nexttile; hold on;
+        barwitherr([sem(acc_cis(:,1:2),1);sem(acc_cis(:,3:4),1)],[mean(acc_cis(:,1:2));mean(acc_cis(:,3:4))]);
+        ylabel('Average accuracy'); ylim([0 1]); legend({'Random', 'Structured'},'Location', 'northeast'); title('Chunk-initiating state')
+        yline(mean(acc_avg))
+
+        nexttile; hold on;
+        barwitherr([sem(acc_ics(:,1:2),1);sem(acc_ics(:,3:4),1)],[mean(acc_ics(:,1:2));mean(acc_ics(:,3:4))]);
+        ylabel('Average accuracy'); ylim([0 1]); title('Intra-chunk state')
+        yline(mean(acc_avg))
+
+        nexttile; hold on;
+        barwitherr([sem(acc_nc(:,1:2),1);sem(acc_nc(:,3:4),1)],[mean(acc_nc(:,1:2));mean(acc_nc(:,3:4))]);
+        ylabel('Average accuracy'); ylim([0 1]); title('Non-chunk state')
+        yline(mean(acc_avg))
+
+        set(gcf, 'Position',  [680 730 1000 240])
+
+
+        % accuracy for other states
+        %         acc(acc==0) = NaN;figure; hold on;
+        %         acc_ns4 = [squeeze(nanmean(acc(:,1:4,1),1));squeeze(nanmean(acc(:,1:4,2),1))];
+        %         acc_ns6 = [squeeze(nanmean(acc(:,:,5),1));squeeze(nanmean(acc(:,:,6),1))];
+        %         figure;
+        %         nexttile; hold on;  bar(acc_ns4'); ylabel('Accuracy')
+        %         nexttile; hold on;  bar(acc_ns4(2,:)-acc_ns4(1,:));  ylabel('\Delta Accuracy')
+        %         nexttile; hold on;  bar(acc_ns6');  ylabel('Accuracy')
+        %         nexttile; hold on;  bar(acc_ns6(2,:)-acc_ns6(1,:)); ylabel('\Delta Accuracy')
+
+        % average reward increase in nonchunked states
+        %         increase_ns4 = acc_ns4(2,:)-acc_ns4(1,:);
+        %         increase_ns6 = acc_ns6(2,:)-acc_ns6(1,:);
+        %         figure; bar([mean(increase_ns4(3:4)) mean(increase_ns6([1:3 6]))] )
+        %         ylabel('Mean \Delta Accuracy')
+
+    case 'old_fig5' % chunking reduces conditional policy complexity
+        conds = {'Ns4,random_train', 'Ns4,structured_train', 'Ns6,random_train', 'Ns6,structured_train'};
+
+        for s = 1:nSubj
+            for c = 1:length(conds)
+                idx = strcmp(data(s).cond, conds(c));
+                state = data(s).s(idx);
+                action = data(s).a(idx);
+                accuracy(s,c) = sum(state==action);
+                for s1 = 1:max(state)
+                    for s2 = 1:max(state)
+                        transition(s,s1,s2,c) = sum(state(1:end-1)==s1 & state(2:end)==s2)/sum(state==s1);% captures state transition matrix of actual data
+                    end
+                end
+                for ss = 1:max(state)
+                    acc(s,ss,c) = sum(state==ss & action==ss)./sum(state==ss);
+                end
+                reward(s,c) = mean(data(s).r(idx));
+                I_sa_s1(s,c) = kernelcmi(state(2:end),action(2:end),state(1:end-1)); % I(S;A|S_{t-1})
+                I_s1a_s(s,c) = kernelcmi(state(1:end-1),action(2:end),state(2:end)); % I(S_{t-1};A|S)
+
+                I_s_a(s,c) = kernelmi(state,action); % I(S;A)
+                I_a_s1(s,c) = kernelmi(state(1:end-1),action(2:end)); % I(S_{t-1};A)
+                I_s_s1(s,c) = kernelmi(state(1:end-1),state(2:end));
+
+                win = 30; % groups of 30 trials
+                for q = 1:length(state)-win
+                    R_data_mov(s,q,c) = kernelmi(state(q:q+win-1), action(q:q+win-1));
+                    %R_data_mov2(s,q,c) = kernelmi(state(q:q+win-2), action(q+1:q+win-1));
+                    R_data_cond_mi(s,q,c) = kernelcmi(state(q+1:q+win-1), action(q+1:q+win-1),state(q:q+win-2));
+                    synergy_mov(s,q,c) = kernelcmi(state(q+1:q+win-1), action(q+1:q+win-1),state(q:q+win-2)) - kernelmi(state(q:q+win-1), action(q:q+win-1));
+                    %R_data_cond_mi2(s,q,c) = kernelcmi(action(q+1:q+win-1),state(q:q+win-2),state(q+1:q+win-1));
+                end
+
+                %%
+                %                 I_sa_s1(s,c) = kernelcmi(state(62:end),action(62:end),state(61:end-1)); % I(S;A|S_{t-1})
+                %                 I_s1a_s(s,c) = kernelcmi(state(61:end-1),action(62:end),state(62:end)); % I(S_{t-1};A|S)
+                %
+                %                 I_a_s(s,c) = kernelmi(state(60:end),action(60:end)); % I(S;A)
+                %                 I_a_s1(s,c) = kernelmi(state(61:end-1),action(62:end)); % I(S_{t-1};A)
+                %                 I_s_s1(s,c) = kernelmi(state(61:end-1),state(62:end));
+            end % cond
+        end % subj
+        I_ss1a = I_sa_s1 + I_a_s1; % I(S,S_{t-1};A) = I(S;A|S_{t-1}) + I(S_{t-1};A)
+        interaction = I_s_a - I_sa_s1;
+        synergy = I_sa_s1 - I_s_a;
+
+
+        % plot moving figures
+        R_data_mov(R_data_mov==0)=NaN;
+        figure; hold on; colororder(cmap)
+        nexttile; hold on;
+        plot(squeeze(mean(R_data_mov,1))); ylabel('I(S;A)'); xlabel('Trials');ylim([0.3 1.2])
+
+        R_data_cond_mi(R_data_cond_mi==0)=NaN;
+        nexttile; hold on; colororder(cmap)
+        plot(squeeze(mean(R_data_cond_mi,1))); ylabel('I(S;A|S_{t-1})'); xlabel('Trials');ylim([0.3 1.2])
+
+        synergy_mov(synergy_mov==0)=NaN;
+        nexttile; hold on; colororder(cmap)
+        plot(squeeze(-mean(synergy_mov,1))); ylabel('Redundancy'); xlabel('Trials');
+
+        set(gcf, 'Position',  [488   581   886   276])
+
+        % plot
+        figure; hold on; colororder(cmap)
+        nexttile; hold on;
+        barwitherr([sem(I_s_a(:,1:2),1);sem(I_s_a(:,3:4),1)],[mean(I_s_a(:,1:2));mean(I_s_a(:,3:4))]);
+        ylabel('I(S;A)'); ylim([0 1.2]); legend({'Random', 'Structured'},'Location', 'northeast');
+        %nexttile; hold on;
+        %barwitherr([sem(I_ss1a(:,1:2),1);sem(I_ss1a(:,3:4),1)],[mean(I_ss1a(:,1:2));mean(I_ss1a(:,3:4))]);
+        %ylabel('I(S,S_{t-1};A)');ylim([0 1.2]); title('Total information between S, S_{t-1}, and A')
+
+        nexttile; hold on;
+        barwitherr([sem(I_sa_s1(:,1:2),1);sem(I_sa_s1(:,3:4),1)],[mean(I_sa_s1(:,1:2));mean(I_sa_s1(:,3:4))]);
+        ylabel('I(S;A|S_{t-1})');ylim([0 1.2]); title('Unique to S and A')
+        nexttile; hold on;
+        barwitherr([sem(I_s1a_s(:,1:2),1);sem(I_s1a_s(:,3:4),1)],[mean(I_s1a_s(:,1:2));mean(I_s1a_s(:,3:4))]);
+        ylabel('I(S_{t-1};A|S)');ylim([0 0.5]); title('Unique to S_{t-1} and A')
+
+        %nexttile; hold on;
+        %barwitherr([sem(synergy(:,1:2),1);sem(synergy(:,3:4),1)],[mean(synergy(:,1:2));mean(synergy(:,3:4))]);
+        %ylabel('Synergy');ylim([-0.5 0.5]); title('Synergy')
+        %I(A;S,S1)=I(A;S∣S1)+I(A;S1) how much information 2 stimuli provice about action together instead of individually.
+
+        set(gcf, 'Position',  [542         698        1000         279])
+
+
+    case 'other_task' % model fit results
+        load('data_probabilistic.mat')
+        conds = {'random', 'structured_normal'};
+
+        nSubj = length(data);
+        %nRepeats = sum(data(1).s(strcmp(data(1).cond, conds{1}))==1);
+        %accuracy = nan(length(conds), nSubj, nRepeats);
+        for s = 1:nSubj
+            for c = 1:length(conds)
+                idx = strcmp(data(s).cond, conds{c});
+                states = data(s).s(idx);
+                acc = data(s).acc(idx);
+                rt = data(s).rt(idx);
+                %acc_nReps = nan(length(unique(states)), nRepeats);
+                %acc_by_nReps = nan(length(unique(states)), nRepeats);
+                for i = 1:length(unique(states))
+                    acc_nReps(i,:) = acc(states==i);
+                    acc_by_nReps(i,:) = rt(states==i);
+                end
+                accuracy(c,s,:) = nanmean(acc_nReps);
+                RT(c,s,:) = nanmean(acc_by_nReps);
+                avgAcc(s,c) = nanmean(acc);
+                avgRT(s,c) = nanmean(rt);
+
+                clear acc_nReps  acc_by_nReps
+            end % condition
+        end
+        avgAcc_trials = squeeze(nanmean(accuracy, 2));
+        avgRT_trials = squeeze(nanmean(RT, 2));
+
+        figure; hold on; subplot 221; hold on;
+        colororder(cmap);
+        plot(1:nRepeats, avgAcc_trials(1,:),'-.', 'LineWidth', 3.5);
+        plot(1:nRepeats, avgAcc_trials(2,:),'-.', 'LineWidth', 3.5);
+
+        for s = 1:length(data)
+            C = [];
+            for c = 1:length(conds)
+                idx = strcmp(data(s).cond, conds(c));
+                state = data(s).s(idx);
+                action = data(s).a(idx);
+                accuracy(s,c) = sum(state==action);
+                for s1 = 1:max(state)
+                    for s2 = 1:max(state)
+                        transition(s,s1,s2,c) = sum(state(1:end-1)==s1 & state(2:end)==s2)/sum(state==s1);% captures state transition matrix of actual data
+                    end
+                end
+                for ss = 1:max(state)
+                    acc(s,ss,c) = sum(state==ss & action==ss)./sum(state==ss);
+                end
+                reward(s,c) = mean(data(s).r(idx));
+                mi(s,c) = kernelmi(state,action);
+                cond_mi(s,c) = kernelcmi(state(2:end),action(2:end),state(1:end-1));
+                I_s_s1(s,c) = kernelmi(state(1:end-1),state(2:end));
+                I_s_s1_a(s,c) = kernelcmi(state(1:end-1),state(2:end),action(2:end));
+                I_s_a(s,c) = mutual_information_basic(state,action,0.1);
+                I_a_s1(s,c) = mutual_information_basic(state(1:end-1),action(2:end),0.1);
+            end
+        end
+        interaction = mi-cond_mi;
+        figure; hold on; colororder(cmap)
+        nexttile; hold on;bar(1,mean(mi)); ylabel('I(S;A)'); ylim([0 1.2])
+        nexttile; hold on;bar(1,mean(I_s_s1)); ylabel('I(S;S_{t-1})');ylim([0 1.2])
+        nexttile; hold on;bar(1,mean(I_a_s1)); ylabel('I(S_{t-1};A)');ylim([0 1.2])
+        nexttile; hold on;bar(1,mean(cond_mi)); ylabel('I(S;A|S_{t-1})');ylim([0 1.2])
+        nexttile; hold on;bar(1,mean(interaction)); ylabel('Interaction - I(S;A;S_{t-1})');ylim([-0.5 0.5])
+        nexttile; hold on;bar(1,mean(synergy)); ylabel('Synergy - I(S,S_{t-1};A)');ylim([-0.5 0.5])
+        delta_i = [interaction(:,2)-interaction(:,1) interaction(:,3)-interaction(:,4) interaction(:,6)-interaction(:,5) interaction(:,7)-interaction(:,8)];
+        nexttile;bar(1,mean(delta_i)); ylabel('\Delta I(S;A;S_{t-1})');
+
+    case 'supplemental'
+        % calculate theoretical bounds on I
+        %         state = shuffle(repmat([1:6],1,100)');
+        %         state_chunk = repmat(data(s).s(idx),5,1);
+        %         ub_mi = kernelmi(state,state)% I(S;S) and I(S;A) if all correct for random is 1.9805
+        %         ub_mi_chunk = kernelmi(state_chunk,state_chunk) % same as above for chunk
+        %         ub_cond_mi = kernelmi(state(1:end-1),state(2:end))% conditional I(S;S_{t-1}) and I(A;S_{t-1}) if all correct for random is 0.25
+        %         ub_cond_mi_chunk = kernelmi(state_chunk(1:end-1),state_chunk(2:end)) %but structured is 0.66
+        %         synergy =  ub_cond_mi - ub_mi; %-1.7273
+        %         synergy_chunk =  ub_cond_mi_chunk - ub_mi_chunk; % -1.3129
+        %
+        %         state = shuffle(repmat([1:4],1,100)');
+        %         state_chunk = repmat(data(s).s(idx),5,1);
+        %         ub_mi = kernelmi(state,state) % I(S;S) and I(S;A) if all correct for random is 1.885
+        %         ub_mi_chunk = kernelmi(state_chunk,state_chunk) % same as above for chunk
+        %         ub_cond_mi = kernelmi(state(1:end-1),state(2:end))% % conditional I(S;S_{t-1}) and I(A;S_{t-1}) if all correct for random is 0.5
+        %         ub_cond_mi_chunk = kernelmi(state_chunk(1:end-1),state_chunk(2:end)) %but structured is 1.00
+        %         synergy =  ub_cond_mi - ub_mi; %-1.38
+        %         synergy_chunk =  ub_cond_mi_chunk - ub_mi_chunk; % -0.8788
+
+        %Ns4:if got everything correct, then  I(S_{t-1};A|S) would be 0.16 and I(S;A|S_{t-1}) would be 1.539
+        %Ns6: if got everything correct, then  I(S_{t-1};A|S) would be 0.1367 and I(S;A|S_{t-1}) would be 1.8691
+
+end
+
+
+end
